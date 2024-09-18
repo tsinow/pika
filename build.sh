@@ -159,7 +159,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-make -j ${CPU_CORE}
+make -j ${4}
 
 if [ $? -eq 0 ]; then
     echo -e "pika compile complete, output file ${C_GREEN} ${BUILD_DIR}/pika ${C_END}"
