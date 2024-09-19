@@ -1,6 +1,7 @@
 name: Tools_go_build
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "unstable", "3.5" , "4.0"]
     paths:
