@@ -206,6 +206,12 @@ var _ = Describe("Server", func() {
 			for key, value := range allConfig {
 				fmt.Printf("%s: %s\n", key, value)
 			}
+
+			fmt.Println("Printing all env settings:")
+			envVars := os.Environ()
+			for _, env := range envVars {
+				fmt.Println(env)
+			}
 			// Check if dumpPath exists and is a directory
 			// info, err := os.Stat(dumpPath)
 			// if os.IsNotExist(err) {
