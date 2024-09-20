@@ -4,8 +4,7 @@ import (
 	"context"
 	"time"
 	"os"
-	"fmt"
-	// "path/filepath"
+	"path/filepath"
 	. "github.com/bsm/ginkgo/v2"
 	. "github.com/bsm/gomega"
 	"github.com/redis/go-redis/v9"
@@ -172,10 +171,26 @@ var _ = Describe("Server", func() {
 			lastSaveBefore, err := client.LastSave(ctx).Result()
 			Expect(err).NotTo(HaveOccurred())
 			
+			dumpConfig := client.ConfigGet(ctx, "dump-path")
+			Expect(dumpConfig.Err()).NotTo(HaveOccurred())
+			originalDumpPath, ok := dumpConfig.Val()["dump-path"]
+			Expect(ok).To(BeTrue())
+			
+			currentDir, err := os.Getwd()
+			Expect(err).NotTo(HaveOccurred())
+			
+			newDumpPath := filepath.Join(currentDir, "dump_tmp")
+			err = client.ConfigSet(ctx, "dump-path", newDumpPath).Err()
+			Expect(err).NotTo(HaveOccurred())
+
+			err = os.MkdirAll(newDumpPath, 0755)
+    		Expect(err).NotTo(HaveOccurred())
+
 			res2, err2 := client.BgSave(ctx).Result()
 			Expect(err2).NotTo(HaveOccurred())
 			Expect(res.Err()).NotTo(HaveOccurred())
 			Expect(res2).To(ContainSubstring("Background saving started"))
+
 			startTime := time.Now()			
 			maxWaitTime := 10 * time.Second
 				
@@ -194,82 +209,16 @@ var _ = Describe("Server", func() {
 				time.Sleep(500 * time.Millisecond)
 			}
 
-			dumpConfig := client.ConfigGet(ctx, "dump-path")
-			Expect(dumpConfig.Err()).NotTo(HaveOccurred())
-			dumpPath, ok := dumpConfig.Val()["dump-path"]
-			Expect(ok).To(BeTrue())
-		
-			allConfig, err := client.ConfigGet(ctx, "*").Result()
+
+			files, err := os.ReadDir(newDumpPath)
+    		Expect(err).NotTo(HaveOccurred())
+   			Expect(len(files)).To(BeNumerically(">", 0), "dump_tmp directory is empty, BGSAVE failed to create a file")
+
+			err = client.ConfigSet(ctx, "dump-path", originalDumpPath).Err()
 			Expect(err).NotTo(HaveOccurred())
-		
-			fmt.Println("Printing all config settings:")
-			for key, value := range allConfig {
-				fmt.Printf("%s: %s\n", key, value)
-			}
 
-			fmt.Println("Printing all env settings:")
-			envVars := os.Environ()
-			for _, env := range envVars {
-				fmt.Println(env)
-			}
-
-			fmt.Println("current path files:")
-			 // 打印当前目录下的所有文件和文件夹
-			 currentDir, err := os.Getwd()
-			 Expect(err).NotTo(HaveOccurred())
-		 
-			 // 打印当前目录
-			 fmt.Printf("Current Directory: %s\n", currentDir)
-		 
-			 // 获取当前目录下的所有文件和文件夹
-			 files, err := os.ReadDir(currentDir)
-			 Expect(err).NotTo(HaveOccurred())
-		 
-			 // 打印当前目录的内容
-			 fmt.Println("Directory contents:")
-			 for _, file := range files {
-				 if file.IsDir() {
-					 fmt.Printf("[DIR]  %s\n", file.Name())
-				 } else {
-					 fmt.Printf("[FILE] %s\n", file.Name())
-				 }
-			 }
-			// Check if dumpPath exists and is a directory
-			// info, err := os.Stat(dumpPath)
-			// if os.IsNotExist(err) {
-			// 	// If dumpPath does not exist, search for 'dump' directories
-			// 	fmt.Println("Dump path does not exist. Searching for 'dump' directories...")
-
-			// 	err = filepath.WalkDir(baseDir, func(path string, info os.DirEntry, err error) error {
-			// 		if err != nil {
-			// 			return err
-			// 		}
-
-			// 		if info.IsDir() && info.Name() == "dump" {
-			// 			absPath, err := filepath.Abs(path)
-			// 			if err != nil {
-			// 				return err
-			// 			}
-			// 			fmt.Println("Found dump directory:", absPath)
-			// 		}
-
-			// 		return nil
-			// 	})
-
-			// 	if err != nil {
-			// 		Fail("Error while searching for dump directories: " + err.Error())
-			// 	}
-			// } else if err != nil {
-			// 	Fail("Error accessing dump path: " + err.Error())
-			// } else {
-			// 	Expect(info.IsDir()).To(BeTrue(), "dump path should be a directory")
-			// }
-			files, err = os.ReadDir(dumpPath)
-			Expect(err).NotTo(HaveOccurred())
-			//need to delete test bgsave file?
-
-			Expect(len(files)).To(BeNumerically(">", 0), "dump directory is empty, bgsave create file failed")
-
+			err = os.RemoveAll(newDumpPath)
+  			Expect(err).NotTo(HaveOccurred())
 		})
 		
 		It("should FlushDb", func() {
