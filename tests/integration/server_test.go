@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 	"os"
+	"fmt"
 	"path/filepath"
 	. "github.com/bsm/ginkgo/v2"
 	. "github.com/bsm/gomega"
@@ -171,20 +172,50 @@ var _ = Describe("Server", func() {
 			lastSaveBefore, err := client.LastSave(ctx).Result()
 			Expect(err).NotTo(HaveOccurred())
 			
+			currentDir, err := os.Getwd()
+			Expect(err).NotTo(HaveOccurred())
+		
+			var pikaDir string
+			for currentDir != "/" {
+				if filepath.Base(currentDir) == "pika" {
+					pikaDir = currentDir
+					break
+				}
+				currentDir = filepath.Dir(currentDir)
+			}
+			Expect(pikaDir).NotTo(BeEmpty(), "Could not find 'pika' directory")
+			
+			var dumpDirs []string
+			err = filepath.WalkDir(pikaDir, func(path string, info os.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if info.IsDir() && info.Name() == "dump" {
+					absPath, err := filepath.Abs(path)
+					if err != nil {
+						return err
+					}
+					dumpDirs = append(dumpDirs, absPath)
+				}
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred(), "Error while searching for 'dump' directories")
+			Expect(len(dumpDirs)).To(BeNumerically(">", 0), "No 'dump' directories found in 'pika'")
+
+			shortestDumpDir := dumpDirs[0]
+			for _, dir := range dumpDirs {
+				if len(dir) < len(shortestDumpDir) {
+					shortestDumpDir = dir
+				}
+			}
+
 			dumpConfig := client.ConfigGet(ctx, "dump-path")
 			Expect(dumpConfig.Err()).NotTo(HaveOccurred())
 			originalDumpPath, ok := dumpConfig.Val()["dump-path"]
 			Expect(ok).To(BeTrue())
 			
-			currentDir, err := os.Getwd()
-			Expect(err).NotTo(HaveOccurred())
-			
-			newDumpPath := filepath.Join(currentDir, "dump_tmp")
-			err = client.ConfigSet(ctx, "dump-path", newDumpPath).Err()
-			Expect(err).NotTo(HaveOccurred())
-
-			err = os.MkdirAll(newDumpPath, 0755)
-    		Expect(err).NotTo(HaveOccurred())
+			dumpPath := filepath.Join(filepath.Dir(shortestDumpDir), originalDumpPath)
+			fmt.Printf("Using dump path: %s\n", dumpPath)
 
 			res2, err2 := client.BgSave(ctx).Result()
 			Expect(err2).NotTo(HaveOccurred())
@@ -210,15 +241,9 @@ var _ = Describe("Server", func() {
 			}
 
 
-			files, err := os.ReadDir(newDumpPath)
-    		Expect(err).NotTo(HaveOccurred())
+			files, err := os.ReadDir(dumpPath)
+    		Expect(err).NotTo(HaveOccurred(), "Failed to read dump_path")
    			Expect(len(files)).To(BeNumerically(">", 0), "dump_tmp directory is empty, BGSAVE failed to create a file")
-
-			err = client.ConfigSet(ctx, "dump-path", originalDumpPath).Err()
-			Expect(err).NotTo(HaveOccurred())
-
-			err = os.RemoveAll(newDumpPath)
-  			Expect(err).NotTo(HaveOccurred())
 		})
 		
 		It("should FlushDb", func() {
