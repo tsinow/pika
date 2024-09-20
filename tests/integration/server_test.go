@@ -212,6 +212,28 @@ var _ = Describe("Server", func() {
 			for _, env := range envVars {
 				fmt.Println(env)
 			}
+
+			fmt.Println("current path files:")
+			 // 打印当前目录下的所有文件和文件夹
+			 currentDir, err := os.Getwd()
+			 Expect(err).NotTo(HaveOccurred())
+		 
+			 // 打印当前目录
+			 fmt.Printf("Current Directory: %s\n", currentDir)
+		 
+			 // 获取当前目录下的所有文件和文件夹
+			 files, err := os.ReadDir(currentDir)
+			 Expect(err).NotTo(HaveOccurred())
+		 
+			 // 打印当前目录的内容
+			 fmt.Println("Directory contents:")
+			 for _, file := range files {
+				 if file.IsDir() {
+					 fmt.Printf("[DIR]  %s\n", file.Name())
+				 } else {
+					 fmt.Printf("[FILE] %s\n", file.Name())
+				 }
+			 }
 			// Check if dumpPath exists and is a directory
 			// info, err := os.Stat(dumpPath)
 			// if os.IsNotExist(err) {
@@ -242,7 +264,7 @@ var _ = Describe("Server", func() {
 			// } else {
 			// 	Expect(info.IsDir()).To(BeTrue(), "dump path should be a directory")
 			// }
-			files, err := os.ReadDir(dumpPath)
+			files, err = os.ReadDir(dumpPath)
 			Expect(err).NotTo(HaveOccurred())
 			//need to delete test bgsave file?
 
