@@ -10,6 +10,12 @@
 build
 cmake-build-debug
 cmake-build-release
+CMakeFiles/
+*.conf
+Makefile
+*.cmake
+*.bak
+*.pid
 
 # Precompiled Headers
 *.gch
@@ -25,6 +31,7 @@ cmake-build-release
 *.lai *.la
 *.a
 *.lib
+*.idx
 
 # Executables
 *.exe
